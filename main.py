@@ -115,6 +115,15 @@ async def init_database():
             );
         """)
 
+        await connection.execute("""
+            CREATE TABLE IF NOT EXISTS support_links (
+                host_message_id BIGINT PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                user_message_id BIGINT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
 
 async def add_user(user_id: int, first_name: str):
     async with pool.acquire() as connection:
@@ -171,15 +180,6 @@ async def save_sent_message(user_id: int, message_date):
         """, user_id, message_date)
 
 
-        await connection.execute("""
-            CREATE TABLE IF NOT EXISTS support_links (
-                host_message_id BIGINT PRIMARY KEY,
-                user_id BIGINT NOT NULL,
-                user_message_id BIGINT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
-
 async def save_support_link(
     host_message_id: int,
     user_id: int,
@@ -207,20 +207,27 @@ async def get_user_by_host_message(host_message_id: int):
             FROM support_links
             WHERE host_message_id = $1;
         """, host_message_id)
+
 # =========================================================
 # ظاهر بات
 # =========================================================
+
+TODAY_BUTTON = "💌  پیام امروز برای دختر قشنگم"
+SUBSCRIBE_BUTTON = "❤️  عضو شو سریع"
+UNSUBSCRIBE_BUTTON = "🔕 لغو عضویت نشیااا"
+HELP_BUTTON = "ℹ️ به این دست نزن"
+
 
 def main_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[
             [
-                KeyboardButton(text="💌  پیام امروز برای دختر قشنگم"),
-                KeyboardButton(text="❤️  عضو شو سریع"),
+                KeyboardButton(text=TODAY_BUTTON),
+                KeyboardButton(text=SUBSCRIBE_BUTTON),
             ],
             [
-                KeyboardButton(text="🔕 لغو عضویت نشیااا"),
-                KeyboardButton(text="ℹ️ به این دست نزن"),
+                KeyboardButton(text=UNSUBSCRIBE_BUTTON),
+                KeyboardButton(text=HELP_BUTTON),
             ],
         ],
         resize_keyboard=True,
@@ -385,32 +392,55 @@ async def help_handler(message: Message):
 
 
 # =========================================================
-# دکمه‌های شیشه‌ای
+# دکمه‌های صفحه اصلی
 # =========================================================
 
-@dp.callback_query(F.data == "subscribe")
-async def subscribe_callback(callback: CallbackQuery):
-    await add_user(
-        callback.from_user.id,
-        callback.from_user.first_name or "دوست عزیز"
-    )
-
-    await callback.answer("عضویت فعال شد ❤️")
-
-    await callback.message.answer(
-        "دریافت پیام‌های عاشقانه برایت فعال شد 💌",
+@dp.message(F.text == TODAY_BUTTON)
+async def today_handler(message: Message):
+    await message.answer(
+        formatted_message(),
         reply_markup=main_keyboard()
     )
 
 
-@dp.callback_query(F.data == "unsubscribe")
-async def unsubscribe_callback(callback: CallbackQuery):
-    await deactivate_user(callback.from_user.id)
+@dp.message(F.text == SUBSCRIBE_BUTTON)
+async def subscribe_button_handler(message: Message):
+    await add_user(
+        message.from_user.id,
+        message.from_user.first_name or "دوست عزیز"
+    )
 
-    await callback.answer("عضویت لغو شد 🔕")
+    await message.answer(
+        "آفرین دخترم، عضویتت با موفقیت فعال شد 💖\n"
+        f"هر روز ساعت {SEND_HOUR:02d}:{SEND_MINUTE:02d} "
+        "یک پیام عاشقانه دریافت می‌کنی 💌",
+        reply_markup=main_keyboard()
+    )
 
-    await callback.message.answer(
-        "دریافت پیام‌های روزانه متوقف شد 🔕",
+
+@dp.message(F.text == UNSUBSCRIBE_BUTTON)
+async def unsubscribe_button_handler(message: Message):
+    await deactivate_user(message.from_user.id)
+
+    await message.answer(
+        "مگه نگفتم به این دست نززززززن 🔕\n"
+        "دریافت پیام‌های روزانه متوقف شد.",
+        reply_markup=main_keyboard()
+    )
+
+
+@dp.message(F.text == HELP_BUTTON)
+async def help_handler(message: Message):
+    await message.answer(
+        "ℹ️ <b>راهنمای بات</b>\n\n"
+        f"{TODAY_BUTTON}: نمایش پیام امروز\n"
+        f"{SUBSCRIBE_BUTTON}: فعال‌سازی پیام‌های روزانه\n"
+        f"{UNSUBSCRIBE_BUTTON}: توقف پیام‌های روزانه\n\n"
+        "/now - نمایش پیام امروز\n"
+        "/subscribe - فعال‌سازی عضویت\n"
+        "/unsubscribe - لغو عضویت\n\n"
+        f"⏰ زمان ارسال: ساعت {SEND_HOUR:02d}:{SEND_MINUTE:02d}\n"
+        f"🌍 منطقه زمانی: {TIMEZONE_NAME}",
         reply_markup=main_keyboard()
     )
 
