@@ -215,12 +215,12 @@ def main_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[
             [
-                KeyboardButton(text="💌 پیام امروز"),
-                KeyboardButton(text="❤️ عضویت"),
+                KeyboardButton(text="💌  پیام امروز برای دختر قشنگم"),
+                KeyboardButton(text="❤️  عضو شو سریع"),
             ],
             [
-                KeyboardButton(text="🔕 لغو عضویت"),
-                KeyboardButton(text="ℹ️ راهنما"),
+                KeyboardButton(text="🔕 لغو عضویت نشیااا"),
+                KeyboardButton(text="ℹ️ به این دست نزن"),
             ],
         ],
         resize_keyboard=True,
@@ -258,7 +258,7 @@ def formatted_message():
     today = now.strftime("%Y/%m/%d")
 
     return (
-        "💌 <b>پیام عاشقانه امروز</b>\n"
+        "💌 <b>این پیام برای توعه عزیزم</b>\n"
         "━━━━━━━━━━━━━━\n\n"
         f"✨ {get_today_message()}\n\n"
         "━━━━━━━━━━━━━━\n"
@@ -294,8 +294,8 @@ async def start_handler(message: Message):
 
     await message.answer(
         f"سلام {message.from_user.first_name or 'عزیزم'} 🌹\n\n"
-        "به بات پیام‌های عاشقانه خوش آمدی 💌\n\n"
-        "از این به بعد هر روز یک پیام زیبا و عاشقانه برایت می‌فرستم ❤️",
+        "به بات مرتضی خوش آمدی 💌\n\n"
+        "از این به بعد هر روز یک پیام زیبا برایت می‌فرستم ❤️",
         reply_markup=main_keyboard()
     )
 
@@ -337,7 +337,7 @@ async def unsubscribe_handler(message: Message):
     )
 
 
-@dp.message(F.text == "💌 پیام امروز")
+@dp.message(F.text == "💌 پیام امروز من برای دخترم")
 async def today_handler(message: Message):
     await message.answer(
         formatted_message(),
@@ -345,7 +345,7 @@ async def today_handler(message: Message):
     )
 
 
-@dp.message(F.text == "❤️ عضویت")
+@dp.message(F.text == "❤️ عضو شو سریع")
 async def subscribe_button_handler(message: Message):
     await add_user(
         message.from_user.id,
@@ -353,17 +353,17 @@ async def subscribe_button_handler(message: Message):
     )
 
     await message.answer(
-        "عالیه! دریافت پیام‌های عاشقانه برایت فعال شد 💖",
+        "افرین دخترم اگه دکمه دیگ میزدی پارت میکردم 💖",
         reply_markup=main_keyboard()
     )
 
 
-@dp.message(F.text == "🔕 لغو عضویت")
+@dp.message(F.text == "🔕 به این دست نزن")
 async def unsubscribe_button_handler(message: Message):
     await deactivate_user(message.from_user.id)
 
     await message.answer(
-        "دریافت پیام‌های روزانه لغو شد 🔕",
+     "مگه نگفتم به این دست نززززززن 🔕",
         reply_markup=main_keyboard()
     )
 
