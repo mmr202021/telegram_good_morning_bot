@@ -826,3 +826,17 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_long_message(context.bot, uid, text)
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = (
+        "📘 راهنمای دستورات:\n\n"
+        "/start  → فعال‌سازی و منوی تنظیمات\n"
+        "/id     → نمایش شناسه چت شما\n"
+        "/name   → (به‌زودی) تنظیم نام\n"
+        "/category → انتخاب دسته‌بندی پیام\n"
+        "/tone   → انتخاب لحن پیام\n"
+        "/test   → ارسال یک پیام فوری\n"
+        "/status → نمایش وضعیت فعلی\n"
+        "/mute   → قطع پیام روزانه\n"
+        "/unmute → برقراری مجدد\n"
+        "/admin  → پنل ادمین (افزودن دوست)\n"
+    )
+    await update.message.reply_text(text)
