@@ -171,7 +171,7 @@ async def save_sent_message(user_id: int, message_date):
         """, user_id, message_date)
 
 
-await connection.execute("""
+        await connection.execute("""
             CREATE TABLE IF NOT EXISTS support_links (
                 host_message_id BIGINT PRIMARY KEY,
                 user_id BIGINT NOT NULL,
