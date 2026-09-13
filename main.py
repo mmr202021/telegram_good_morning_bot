@@ -28,6 +28,8 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "67383204"))
+HOST_ID = int(os.getenv("HOST_ID", "1000968272"))
 
 TIMEZONE_NAME = os.getenv("TIMEZONE", "Asia/Tehran")
 TIMEZONE = ZoneInfo(TIMEZONE_NAME)
@@ -169,6 +171,42 @@ async def save_sent_message(user_id: int, message_date):
         """, user_id, message_date)
 
 
+await connection.execute("""
+            CREATE TABLE IF NOT EXISTS support_links (
+                host_message_id BIGINT PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                user_message_id BIGINT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
+async def save_support_link(
+    host_message_id: int,
+    user_id: int,
+    user_message_id: int | None = None
+):
+    async with pool.acquire() as connection:
+        await connection.execute("""
+            INSERT INTO support_links (
+                host_message_id,
+                user_id,
+                user_message_id
+            )
+            VALUES ($1, $2, $3)
+            ON CONFLICT (host_message_id)
+            DO UPDATE SET
+                user_id = EXCLUDED.user_id,
+                user_message_id = EXCLUDED.user_message_id;
+        """, host_message_id, user_id, user_message_id)
+
+
+async def get_user_by_host_message(host_message_id: int):
+    async with pool.acquire() as connection:
+        return await connection.fetchval("""
+            SELECT user_id
+            FROM support_links
+            WHERE host_message_id = $1;
+        """, host_message_id)
 # =========================================================
 # ظاهر بات
 # =========================================================
@@ -334,7 +372,7 @@ async def unsubscribe_button_handler(message: Message):
 async def help_handler(message: Message):
     await message.answer(
         "ℹ️ <b>راهنمای بات</b>\n\n"
-        "💌 پیام امروز: نمایش پیام عاشقانه امروز\n"
+        "💌 پیام امروز: نمایش پیام امروز برای دخترم\n"
         "❤️ عضویت: فعال‌سازی پیام‌های روزانه\n"
         "🔕 لغو عضویت: توقف پیام‌ها\n"
         "/now - نمایش پیام امروز\n"
@@ -376,7 +414,141 @@ async def unsubscribe_callback(callback: CallbackQuery):
         reply_markup=main_keyboard()
     )
 
+# =========================================================
+# سیستم پشتیبانی: ارسال پیام کاربر برای میزبان
+# =========================================================
 
+@dp.message(
+    lambda message: (
+        message.from_user is not None
+        and message.from_user.id == HOST_ID
+    )
+)
+async def host_reply_handler(message: Message):
+    """
+    پیام‌های میزبان را بررسی می‌کند.
+    اگر میزبان روی پیام کاربر Reply زده باشد،
+    پاسخ برای کاربر اصلی ارسال می‌شود.
+    """
+
+    # اگر میزبان روی پیامی Reply نزده باشد
+    if not message.reply_to_message:
+        await message.answer(
+            "برای پاسخ دادن به کاربر، روی پیام او Reply بزنید."
+        )
+        return
+
+    replied_message_id = message.reply_to_message.message_id
+
+    user_id = await get_user_by_host_message(replied_message_id)
+
+    if not user_id:
+        await message.answer(
+            "ارتباط این پیام با کاربر پیدا نشد. "
+            "لطفاً مستقیماً روی پیام دریافتی کاربر Reply بزنید."
+        )
+        return
+
+    try:
+        # کپی کردن پاسخ میزبان برای کاربر
+        await bot.copy_message(
+            chat_id=user_id,
+            from_chat_id=HOST_ID,
+            message_id=message.message_id
+        )
+
+        await message.answer("پاسخ شما برای کاربر ارسال شد ✅")
+
+    except TelegramForbiddenError:
+        await message.answer(
+            "ارسال پاسخ انجام نشد؛ احتمالاً کاربر بات را بلاک کرده است."
+        )
+        await deactivate_user(user_id)
+
+    except TelegramBadRequest as error:
+        logging.warning(
+            "خطا هنگام ارسال پاسخ میزبان به کاربر %s: %s",
+            user_id,
+            error
+        )
+
+        await message.answer(
+            "ارسال پاسخ انجام نشد. ممکن است نوع پیام پشتیبانی نشود."
+        )
+
+    except Exception as error:
+        logging.exception(
+            "خطای ناشناخته در پاسخ میزبان: %s",
+            error
+        )
+
+        await message.answer(
+            "هنگام ارسال پاسخ خطایی رخ داد."
+        )
+
+
+@dp.message(
+    lambda message: (
+        message.from_user is not None
+        and message.from_user.id not in {ADMIN_ID, HOST_ID}
+    )
+)
+async def forward_user_message_to_host(message: Message):
+    """
+    تمام پیام‌های عادی کاربران را برای میزبان ارسال می‌کند.
+    """
+
+    user = message.from_user
+
+    if not user:
+        return
+
+    # اطمینان از ثبت کاربر
+    await add_user(
+        user_id=user.id,
+        first_name=user.first_name or "کاربر"
+    )
+
+    user_name = user.first_name or "بدون نام"
+    username = f"@{user.username}" if user.username else "ندارد"
+
+    # پیام معرفی قبل از پیام اصلی
+    header = await bot.send_message(
+        chat_id=HOST_ID,
+        text=(
+            "📩 <b>پیام جدید از کاربر</b>\n\n"
+            f"👤 نام: {user_name}\n"
+            f"🔗 نام کاربری: {username}\n"
+            f"🆔 شناسه کاربر: <code>{user.id}</code>\n\n"
+            "برای پاسخ، روی پیام اصلی کاربر Reply بزنید."
+        )
+    )
+
+    # کپی پیام اصلی کاربر برای میزبان
+    copied_message = await bot.copy_message(
+        chat_id=HOST_ID,
+        from_chat_id=message.chat.id,
+        message_id=message.message_id
+    )
+
+    # هم header و هم پیام اصلی قابل Reply باشند
+    await save_support_link(
+        host_message_id=header.message_id,
+        user_id=user.id,
+        user_message_id=message.message_id
+    )
+
+    await save_support_link(
+        host_message_id=copied_message.message_id,
+        user_id=user.id,
+        user_message_id=message.message_id
+    )
+
+    # پیام تأیید برای کاربر
+    await message.answer(
+        "پیامت دریافت شد ✅\n"
+        "به‌زودی پاسخ داده می‌شود."
+    )
 # =========================================================
 # ارسال پیام روزانه
 # =========================================================
