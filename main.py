@@ -159,26 +159,32 @@ async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error(f"Unhandled exception caused by update {update}", exc_info=context.error)
 
-def main() -> None:
+def main():
     if not BOT_TOKEN:
-        logger.critical("The BOT_TOKEN environment variable is required.")
+        logging.critical("The BOT_TOKEN environment variable is required.")
         sys.exit(1)
 
-    application = (
-        Application.builder()
-        .token(BOT_TOKEN)
-        .job_queue_enabled(True)
-        .build()
-    )
+    # در نسخه ۲۱.۴ این متد وجود دارد، اگر نبود کد زیر حذف می‌کند
+    try:
+        builder = Application.builder().token(BOT_TOKEN)
+        if hasattr(builder, "job_queue_enabled"):
+            builder.job_queue_enabled(True)
+    except Exception:
+        builder = Application.builder().token(BOT_TOKEN)
+
+    application = builder.build()
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("id", id_command))
     application.add_error_handler(error_handler)
 
-    application.run_polling(
-        allowed_updates=Update.ALL_TYPES,
-        post_init=post_init,
-        drop_pending_updates=False,
+    # برای استفاده از JobQueue اگر فعال بود
+    if application.job_queue is not None:
+        logging.info("JobQueue active, waiting for scheduled time.")
+    else:
+        logging.info("JobQueue disabled in builder, continuing normally.")
+
+    application.run_polling()
     )
 
 if __name__ == "__main__":
