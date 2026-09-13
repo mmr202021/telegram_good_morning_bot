@@ -185,7 +185,6 @@ def main():
         logging.info("JobQueue disabled in builder, continuing normally.")
 
     application.run_polling()
-    )
 
 if __name__ == "__main__":
     main()
