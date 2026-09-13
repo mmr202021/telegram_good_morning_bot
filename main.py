@@ -44,7 +44,8 @@ logger = logging.getLogger(__name__)
 # ----------------------------
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
-ADMIN_ID_ENV = int_filter(os.environ.get("ADMIN_ID", "").strip()) if "ADMIN_ID" in os.environ else None
+ADMIN_ID_RAW = os.environ.get("ADMIN_ID", "").strip()
+ADMIN_ID_ENV = int(ADMIN_ID_RAW) if ADMIN_ID_RAW.lstrip("-").isdigit() else None
 
 TIMEZONE_NAME = os.environ.get("TIMEZONE", "Asia/Tehran").strip() or "Asia/Tehran"
 SEND_TIME = os.environ.get("SEND_TIME", "08:30").strip() or "08:30"
